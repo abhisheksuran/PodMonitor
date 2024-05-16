@@ -1,0 +1,14 @@
+apiVersion: "kk.dev/v1"
+kind: PodMonitor
+metadata:
+  creationTimestamp: null
+  labels:
+    run: mymonitor
+  name: mymonitor
+spec:
+  name: my_monitor
+  target_namespace: myns
+  smtp_server: 127.0.0.1
+  smtp_port: 25
+  mail_to: user1@example.com
+  mail_from: user2@example.com
