@@ -23,11 +23,10 @@ mod utils;
 
 use std::sync::{Mutex, OnceLock};
 
-fn pod_state() -> &'static Mutex<HashMap<String, String>> {
-    static HASHMP: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+fn pod_state() -> &'static Mutex<HashMap<String, Mutex<HashMap<String, String>>>> {
+    static HASHMP: OnceLock<Mutex<HashMap<String, Mutex<HashMap<String, String>>>>> = OnceLock::new();
     HASHMP.get_or_init(|| Mutex::new(HashMap::new()))
 }
-
 
 
 #[tokio::main]
@@ -64,11 +63,14 @@ async fn main() -> () {
 ()
 }
 
-async fn monitor_pods_in_namespace(pod_api: Api<Pod>) -> Result<HashMap<String, (Vec<String>, Vec<String>, String)>, Error> {
+async fn monitor_pods_in_namespace(pod_api: Api<Pod>, namespace: &str) -> Result<HashMap<String, (Vec<String>, Vec<String>, String)>, Error> {
 
     let mut error_pod: HashMap<String, (Vec<String>, Vec<String>, String)> = HashMap::new();
     
-    let mut all_pod_names: HashSet<String> = HashSet::new(); 
+    let mut all_pod_names: HashSet<String> = HashSet::new();
+    let mut pods_in_namespace: HashMap<String, String> = HashMap::new();
+    println!("{:?}", pod_state().lock().unwrap());
+    pod_state().lock().unwrap().entry(namespace.to_owned()).or_insert(pods_in_namespace.clone().into());
     for p in pod_api.list(&ListParams::default()).await? {
 
         let name: String = p.name_any();
@@ -85,21 +87,26 @@ async fn monitor_pods_in_namespace(pod_api: Api<Pod>) -> Result<HashMap<String, 
         println!("{:?}, {:?}, {:?}, {:?}", name, cont_status, cont_reason, phase);
 
         let c_reasons = cont_reason.clone().into_iter().filter(|i| !["Running", "Succeeded", "ContainerCreating"].contains(&&i[..])).collect::<Vec<String>>();
-        if !c_reasons.is_empty() && &phase[..] != "Running" && pod_state().lock().unwrap().get(&name) != Some(&phase) {
-        println!("{:?}\n{:?}",  pod_state().lock().unwrap(), &phase);
+     //   println!("{:?}{:?}", pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap(), Some(&phase));
+        if !c_reasons.is_empty() && &phase[..] != "Running" && pod_state().lock().unwrap().get(&namespace.to_owned()).expect("Internal State Error").lock().unwrap().get(&name) != Some(&phase) {
+      //  if !c_reasons.is_empty() && &phase[..] != "Running" && pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap().lock().unwrap().get(&name) != Some(&phase) {
+     //   println!("{:?}\n{:?}",  pod_state().lock().unwrap(), &phase);
         error_pod.insert(name.clone(), (cont_status, cont_reason, phase.to_string()));
         }
-        pod_state().lock().unwrap().insert(name.clone(), phase.clone());
+       // pods_in_namespace.insert(name.clone(), phase.clone());
+       pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap().lock().unwrap().insert(name.clone(), phase.clone());
     }
-    let temp_map = pod_state().lock().unwrap().clone();
-    let pod_names: Vec<String> = temp_map.into_keys().collect();
+   // pod_state().lock().unwrap().insert(namespace.to_owned(), pods_in_namespace.into());
+    //let pod_names: Vec<String> = pod_state().lock().unwrap().get(&namespace.to_owned()).expect("Internal State Error").lock().unwrap().clone().into_keys().collect();
+    let pod_names: Vec<String> = pod_state().lock().unwrap().get(&namespace.to_owned()).expect("Internal State Error").lock().unwrap().clone().into_keys().collect();
+    //let pod_names: Vec<String> = temp_map.into_keys().collect();
     let set_pod_names: HashSet<String> = HashSet::from_iter(pod_names);
     let deleted_pod: HashSet<&String> = set_pod_names.difference(&all_pod_names).collect();
     println!("Deleted Pod: {:?}", deleted_pod);
 
     for pod in deleted_pod {
     
-        pod_state().lock().unwrap().remove(pod);
+        pod_state().lock().unwrap().get(&namespace.to_owned()).expect("Internal State Error").lock().unwrap().remove(pod);
     } 
    
     Ok(error_pod)
@@ -115,7 +122,8 @@ async fn prepare_email(podmonitor: Arc<PodMonitor>, error_pods: HashMap<String, 
         let c_status = value.0.join(",");
         let c_reason = value.1.join(",");
         let p_phase = value.2;
-        msg.push_str(&format!("Pod Name : {key} \nContainers Statuses: {c_status} \nStatus Remark:  {c_reason} \nPOD_STATE: {p_phase}\n"));
+        let ns = &podmonitor.spec.target_namespace;
+        msg.push_str(&format!("Namespace: {ns}\nPod Name : {key} \nContainers Statuses: {c_status} \nStatus Remark:  {c_reason} \nPOD_STATE: {p_phase}\n\n--------\n"));
     }
     println!("{}", msg);
     utils::send_email(&podmonitor.name_any(), &podmonitor.spec.mail_to, &podmonitor.spec.mail_from, &msg, &podmonitor.spec.smtp_server, podmonitor.spec.smtp_port, &podmonitor.spec.username, &podmonitor.spec.password).await;
@@ -166,7 +174,7 @@ async fn reconcile(podmonitor: Arc<PodMonitor>, context: Arc<ContextData>) -> Re
             let client = Client::try_default().await?;
             let target_namespace = &podmonitor.spec.target_namespace;
             let pods: Api<Pod> = Api::namespaced(client, &target_namespace);
-            let error_pods = monitor_pods_in_namespace(pods).await?;
+            let error_pods = monitor_pods_in_namespace(pods, &target_namespace).await?;
             if error_pods.is_empty() {
                         return Ok(Action::requeue(Duration::from_secs(10)))
             }
