@@ -2,7 +2,7 @@ use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 
-pub async fn send_email(to: &str, from: &str, msg: &str, server: &str, port: u16)  {
+pub async fn send_email(name: &str, to: &str, from: &str, msg: &str, server: &str, port: u16, username: &Option<String>, password: &Option<String>)  {
 
     println!("send_email called...");
     	let email = Message::builder()
@@ -13,21 +13,22 @@ pub async fn send_email(to: &str, from: &str, msg: &str, server: &str, port: u16
     	.header(ContentType::TEXT_PLAIN)
     	.body(msg.to_string())
     	.unwrap();
+	
+	let mailer = match (username, password) {
 
-	//let creds = Credentials::new("smtp_username".to_owned(), "smtp_password".to_owned());
+		(Some(user), Some(pass)) => {let creds = Credentials::new("smtp_username".to_owned(), "smtp_password".to_owned());
+				             SmtpTransport::builder_dangerous(server).port(port).credentials(creds).build()},
+                (None, None) => { println!("Connecting to smtp without credentials for: {:?}", name);
+                                  SmtpTransport::builder_dangerous(server).port(port).build()}
 
-	// Open a remote connection to gmail
-	let mailer = SmtpTransport::builder_dangerous(server)
-        .port(port)
-    	.build();
-    	//.credentials(creds)
-    	//.build();
+                _ => { eprintln!("Username and password both are required for provided for smtp server: {:?}!!!", name);
+                       return () }, 
+	};
 
 	// Send the email
 	match mailer.send(&email) {
     	Ok(_) => println!("Email sent successfully!"),
-    	Err(e) => panic!("Could not send email: {e:?}"),
+    	Err(e) => eprintln!("Could not send email: {e:?}"),
 	}
-
-   // println!("{:?}", result); 
+ 
 }

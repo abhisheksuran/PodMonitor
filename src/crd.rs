@@ -19,7 +19,9 @@ pub struct PodMonitorSpec {
     pub smtp_server: String,
     pub smtp_port: u16,
     pub mail_to: String,
-    pub mail_from: String
+    pub mail_from: String,
+    pub username: Option<String>,
+    pub password: Option<String>
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, JsonSchema)]

@@ -1,7 +1,7 @@
 //use anyhow::Ok;
 use std::collections::HashSet;
 use k8s_openapi::api::core::v1::ContainerState;
-use tracing::*;
+//use tracing::*;
 use std::sync::Arc;
 use std::collections::HashMap;
 use futures::stream::StreamExt;
@@ -115,10 +115,10 @@ async fn prepare_email(podmonitor: Arc<PodMonitor>, error_pods: HashMap<String, 
         let c_status = value.0.join(",");
         let c_reason = value.1.join(",");
         let p_phase = value.2;
-        msg.push_str(&format!("Pod : {key} Containers Statuses: {c_status}  Status Remark:  {c_reason} POD_STATE: {p_phase}\n"));
+        msg.push_str(&format!("Pod Name : {key} \nContainers Statuses: {c_status} \nStatus Remark:  {c_reason} \nPOD_STATE: {p_phase}\n"));
     }
     println!("{}", msg);
-    utils::send_email(&podmonitor.spec.mail_to, &podmonitor.spec.mail_from, &msg, &podmonitor.spec.smtp_server, podmonitor.spec.smtp_port).await;
+    utils::send_email(&podmonitor.name_any(), &podmonitor.spec.mail_to, &podmonitor.spec.mail_from, &msg, &podmonitor.spec.smtp_server, podmonitor.spec.smtp_port, &podmonitor.spec.username, &podmonitor.spec.password).await;
     println!("Email Sent!!!");
     Ok(())
 }

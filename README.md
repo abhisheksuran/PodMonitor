@@ -29,8 +29,11 @@ spec:
   smtp_port: 25
   mail_to: user1@example.com
   mail_from: user2@example.com
+  username: user,
+  password: pass
 
 ```
+Note: Username and Password are options and depends on your smtp server configuration.
 4. whenever a pod fails to run in the target namespace, you will get email for the same.
 
 
