@@ -51,7 +51,7 @@ async fn main() -> () {
         .for_each(|reconciliation_result| async move {
             match reconciliation_result {
                 Ok(podmonitor_resource) => {
-                    println!("Monitoring Successful for Resource: {:?}", podmonitor_resource);
+                    println!("Monitoring Successful for Resource: {:?}, Namespace: {:?}", podmonitor_resource.0.name, podmonitor_resource.0.namespace);
                     
                 }
                 Err(reconciliation_err) => {
@@ -91,10 +91,13 @@ async fn monitor_pods_in_namespace(pod_api: Api<Pod>, namespace: &str) -> Result
         if !c_reasons.is_empty() && &phase[..] != "Running" && pod_state().lock().unwrap().get(&namespace.to_owned()).expect("Internal State Error").lock().unwrap().get(&name) != Some(&phase) {
       //  if !c_reasons.is_empty() && &phase[..] != "Running" && pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap().lock().unwrap().get(&name) != Some(&phase) {
      //   println!("{:?}\n{:?}",  pod_state().lock().unwrap(), &phase);
-        error_pod.insert(name.clone(), (cont_status, cont_reason, phase.to_string()));
-        }
+       
+        error_pod.insert(name.clone(), (cont_status, cont_reason.clone(), phase.to_string()));
+       }  
+        if !&cont_reason.contains(&"ContainerCreating".to_string()){
        // pods_in_namespace.insert(name.clone(), phase.clone());
-       pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap().lock().unwrap().insert(name.clone(), phase.clone());
+               pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap().lock().unwrap().insert(name.clone(), phase.clone());
+       }
     }
    // pod_state().lock().unwrap().insert(namespace.to_owned(), pods_in_namespace.into());
     //let pod_names: Vec<String> = pod_state().lock().unwrap().get(&namespace.to_owned()).expect("Internal State Error").lock().unwrap().clone().into_keys().collect();
