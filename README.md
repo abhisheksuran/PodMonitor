@@ -11,6 +11,12 @@ This creates a custom resource (PodMonitor) to get notify on email for any pod f
 ```
 nohup cargo run &
 ```
+OR, use compiled binary.
+
+```
+nohup podmon &
+``` 
+
 2. Once ran, code will create CRD and and will run in the background as a controller for our CRD.
 
 3. Create Instance of our new custom resouce using below template.
