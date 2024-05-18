@@ -2,6 +2,10 @@
 use std::collections::HashSet;
 use k8s_openapi::api::core::v1::ContainerState;
 //use tracing::*;
+use log::debug;
+use log::error;
+use log::info;
+use log::warn;
 use std::sync::Arc;
 use std::collections::HashMap;
 use futures::stream::StreamExt;
@@ -31,15 +35,15 @@ fn pod_state() -> &'static Mutex<HashMap<String, Mutex<HashMap<String, String>>>
 
 #[tokio::main]
 async fn main() -> () {
-
-    println!("Starting...");
+    env_logger::init();
+    info!("Starting...");
     let kubernetes_client: Client = Client::try_default()
         .await
         .expect("Kindly set KUBECONFIG environment variable.");
     let ssapply = PatchParams::apply("podmonitor_apply").force();
     let crds: Api<CustomResourceDefinition> = Api::all(kubernetes_client.clone());
     let _ = crds.patch("podmonitors.kk.dev", &ssapply, &Patch::Apply(PodMonitor::crd())).await;
-    println!("Crd Submitted to the API-Server...");
+    info!("Crd Submitted to the API-Server...");
     let establish = await_condition(crds, "podmonitor.kk.dev", conditions::is_crd_established());
     let _ = tokio::time::timeout(std::time::Duration::from_secs(10), establish).await;
 
@@ -51,11 +55,11 @@ async fn main() -> () {
         .for_each(|reconciliation_result| async move {
             match reconciliation_result {
                 Ok(podmonitor_resource) => {
-                    println!("Monitoring Successful for Resource: {:?}, Namespace: {:?}", podmonitor_resource.0.name, podmonitor_resource.0.namespace);
+                    info!("Monitoring Successful for Resource: {:?}, Namespace: {:?}", podmonitor_resource.0.name, podmonitor_resource.0.namespace);
                     
                 }
                 Err(reconciliation_err) => {
-                    eprintln!("Monitoring  Error:\n{:?}", reconciliation_err);
+                    error!("Monitoring  Error:\n{:?}", reconciliation_err);
                 }
             }
         })
@@ -69,7 +73,7 @@ async fn monitor_pods_in_namespace(pod_api: Api<Pod>, namespace: &str) -> Result
     
     let mut all_pod_names: HashSet<String> = HashSet::new();
     let mut pods_in_namespace: HashMap<String, String> = HashMap::new();
-    println!("{:?}", pod_state().lock().unwrap());
+    debug!("{:?}", pod_state().lock().unwrap());
     pod_state().lock().unwrap().entry(namespace.to_owned()).or_insert(pods_in_namespace.clone().into());
     for p in pod_api.list(&ListParams::default()).await? {
 
@@ -84,7 +88,7 @@ async fn monitor_pods_in_namespace(pod_api: Api<Pod>, namespace: &str) -> Result
         let cont_reason = pod_status.clone().iter()
         .map(|cr| match cr.clone().unwrap().waiting { Some(_w) => return _w.reason.unwrap(), None => return "None".to_string() }).collect::<Vec<String>>();
         let phase = &p.status.unwrap().phase.unwrap();
-        println!("{:?}, {:?}, {:?}, {:?}", name, cont_status, cont_reason, phase);
+        debug!("{:?}, {:?}, {:?}, {:?}", name, cont_status, cont_reason, phase);
 
         let c_reasons = cont_reason.clone().into_iter().filter(|i| !["Running", "Succeeded", "ContainerCreating"].contains(&&i[..])).collect::<Vec<String>>();
      //   println!("{:?}{:?}", pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap(), Some(&phase));
@@ -105,7 +109,7 @@ async fn monitor_pods_in_namespace(pod_api: Api<Pod>, namespace: &str) -> Result
     //let pod_names: Vec<String> = temp_map.into_keys().collect();
     let set_pod_names: HashSet<String> = HashSet::from_iter(pod_names);
     let deleted_pod: HashSet<&String> = set_pod_names.difference(&all_pod_names).collect();
-    println!("Deleted Pod: {:?}", deleted_pod);
+    info!("Deleted Pod: {:?}", deleted_pod);
 
     for pod in deleted_pod {
     
@@ -118,8 +122,8 @@ async fn monitor_pods_in_namespace(pod_api: Api<Pod>, namespace: &str) -> Result
 
 async fn prepare_email(podmonitor: Arc<PodMonitor>, error_pods: HashMap<String, (Vec<String>, Vec<String>, String)>) -> Result<(), Error> {
 
-    println!("Setting Up Email...");
-    println!("{:?}", error_pods);
+    info!("Setting Up Email...");
+    debug!("{:?}", error_pods);
     let mut msg = String::new();
     for (key, value) in error_pods.into_iter() {
         let c_status = value.0.join(",");
@@ -128,9 +132,9 @@ async fn prepare_email(podmonitor: Arc<PodMonitor>, error_pods: HashMap<String, 
         let ns = &podmonitor.spec.target_namespace;
         msg.push_str(&format!("Namespace: {ns}\nPod Name : {key} \nContainers Statuses: {c_status} \nStatus Remark:  {c_reason} \nPOD_STATE: {p_phase}\n\n--------\n"));
     }
-    println!("{}", msg);
+    debug!("{}", msg);
     utils::send_email(&podmonitor.name_any(), &podmonitor.spec.mail_to, &podmonitor.spec.mail_from, &msg, &podmonitor.spec.smtp_server, podmonitor.spec.smtp_port, &podmonitor.spec.username, &podmonitor.spec.password).await;
-    println!("Email Sent!!!");
+    info!("Email Sent!!!");
     Ok(())
 }
 
@@ -204,7 +208,7 @@ fn determine_action(podmonitor: &PodMonitor) -> PodMonitorAction {
 }
 
 fn on_error(podmonitor: Arc<PodMonitor>, error: &Error, _context: Arc<ContextData>) -> Action {
-    eprintln!("Error While Monitoring:\n{:?}.\n{:?}", error, podmonitor);
+    error!("Error While Monitoring:\n{:?}.\n{:?}", error, podmonitor);
     Action::requeue(Duration::from_secs(5))
 }
 
