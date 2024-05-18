@@ -25,18 +25,15 @@ nohup RUST_LOG=info ./binary/podmon &
 apiVersion: "kk.dev/v1"
 kind: PodMonitor
 metadata:
-  creationTimestamp: null
-  labels:
-    run: mymonitor
   name: mymonitor
 spec:
-  name: my_monitor
+  name: mymonitor
   target_namespace: mynamespace
   smtp_server: 127.0.0.1
   smtp_port: 25
   mail_to: user1@example.com
   mail_from: user2@example.com
-  username: user,
+  username: user
   password: pass
 
 ```
