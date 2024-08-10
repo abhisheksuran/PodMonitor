@@ -1,32 +1,32 @@
 # PodMonitor Kubernetes Controller
 
 ## Description
-Rust based Custom Resouce and Controller for Kubernetes.
-This creates a custom resource (PodMonitor) to get notify on email for any pod failure.
+This project provides a Rust-based custom resource and controller for Kubernetes. It introduces a custom resource, PodMonitor, which sends email notifications upon pod failures.
 
+## Steps to Deploy
+#### 1. Install the Controller:
 
-#### Steps:
-
-1. Install Controller via yaml which will create Namespace, Service account, clusterrole, binding and deployment for deployment.
-
+Apply the Kubernetes YAML configuration to set up the necessary components, including the namespace, service account, cluster role, role binding, and controller deployment:
 ```
 kubectl apply -f PodMonitor.yaml
 ```
 
-OR, Run the rust code.
+Alternatively, you can run the Rust code directly:
 
 ```
 nohup RUST_LOG=info  cargo run &
 ```
-OR, use compiled binary.
+Or use the precompiled binary:
 
 ```
 nohup RUST_LOG=info ./binary/podmon &
 ``` 
+#### 2. Initialize the Custom Resource Definition (CRD)
+Once the controller is running, it will automatically create the CRD and operate in the background to manage instances of the custom resource.
 
-2. Once ran, code will create CRD and and will run in the background as a controller for our CRD.
+#### 3. Create a PodMonitor Instance
 
-3. Create Instance of our new custom resouce using below template.
+Define a new instance of the PodMonitor custom resource using the following YAML template:
 
 ```
 apiVersion: "kk.dev/v1"
@@ -44,8 +44,10 @@ spec:
   password: pass
 
 ```
-Note: Username and Password are options and depends on your smtp server configuration.
-4. whenever a pod fails to run in the target namespace, you will get email for the same.
+Note: The username and password fields are optional and depend on your SMTP server's configuration.
+
+#### 4. Receive Notifications
+Whenever a pod fails in the specified namespace, you will receive an email notification according to the configuration set in the PodMonitor instance.
 
 
 #### Email Sample:
