@@ -4,9 +4,16 @@
 Rust based Custom Resouce and Controller for Kubernetes.
 This creates a custom resource (PodMonitor) to get notify on email for any pod failure.
 
+
 #### Steps:
 
-1. Run the rust code.
+1. Install Controller via yaml which will create Namespace, Service account, clusterrole, binding and deployment for deployment.
+
+```
+kubectl apply -f PodMonitor.yaml
+```
+
+OR, Run the rust code.
 
 ```
 nohup RUST_LOG=info  cargo run &
@@ -39,6 +46,11 @@ spec:
 ```
 Note: Username and Password are options and depends on your smtp server configuration.
 4. whenever a pod fails to run in the target namespace, you will get email for the same.
+
+
+#### Email Sample:
+
+![alt text](image.png)
 
 
 ### References:
