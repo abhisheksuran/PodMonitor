@@ -18,8 +18,9 @@ This project provides a Rust-based custom resource and controller for Kubernetes
     - [With Credentials](#with-credentials)
     - [Without Credentials](#without-credentials)
   - [4. Receive Notifications](#4-receive-notifications)
-  - [Email Sample](#email-sample)
-  - [References](#references)
+- [Email Sample](#email-sample)
+- [License](#license)
+- [References](#references)
 
 
 ## Steps to Deploy
@@ -96,6 +97,9 @@ Whenever a pod fails in the specified namespace, you will receive an email notif
 ![alt text](image.png)
 
 </div>
+
+## License
+This project is licensed under the MIT License. See LICENSE for details.
 
 ### References:
 
