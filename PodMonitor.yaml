@@ -80,7 +80,7 @@ spec:
     spec:
       serviceAccountName: podmon-sa
       containers:
-      - image: abhisheksuran/podmonitor
+      - image: #REGISTRY#/abhisheksuran/podmonitor:#TAG_NAME#
         name: podmonitor
         env:
         - name: RUST_LOG

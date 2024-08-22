@@ -21,11 +21,10 @@ pub struct PodMonitorSpec {
     pub mail_to: String,
     pub mail_from: String,
     pub username: Option<String>,
-    pub password: Option<String>
+    pub password: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, JsonSchema)]
 pub struct PodMonitorStatus {
-
-    pub is_ok: bool
+    pub is_ok: bool,
 }

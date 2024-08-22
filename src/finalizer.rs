@@ -3,7 +3,6 @@ use kube::api::{Patch, PatchParams};
 use kube::{Api, Client, Error};
 use serde_json::{json, Value};
 
-
 pub async fn add(client: Client, name: &str, namespace: &str) -> Result<PodMonitor, Error> {
     let api: Api<PodMonitor> = Api::namespaced(client, namespace);
     let finalizer: Value = json!({
