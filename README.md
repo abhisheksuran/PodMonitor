@@ -1,5 +1,5 @@
 # PodMonitor Kubernetes Controller
-
+[![.github/workflows/podmonitor_ci.yaml](https://github.com/abhisheksuran/PodMonitor/actions/workflows/podmonitor_ci.yaml/badge.svg)](https://github.com/abhisheksuran/PodMonitor/actions/workflows/podmonitor_ci.yaml)
 ## Description
 This project provides a Rust-based custom resource and controller for Kubernetes. It introduces a custom resource, PodMonitor, which sends email notifications upon pod failures.
 
@@ -7,7 +7,8 @@ This project provides a Rust-based custom resource and controller for Kubernetes
 #### 1. Install the Controller:
 
 Apply the Kubernetes YAML configuration to set up the necessary components, including the namespace, service account, cluster role, role binding, and controller deployment:
-Use PodMonitor.yaml from release
+
+Use PodMonitor.yaml from [release](https://github.com/abhisheksuran/PodMonitor/releases/tag/0.1.1a) 
 ```
 kubectl apply -f PodMonitor.yaml
 ```
