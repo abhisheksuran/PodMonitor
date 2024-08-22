@@ -8,14 +8,16 @@ env:
   project_name: 'podmonitor'
 
 jobs:
-  checkout_repo:
+  checkout_build_release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: action/checkout@v4
-      - run: |
+        uses: actions/checkout@v4
+
+      - name: Update YAML files
+        run: |
           sed -i -e "s/#REGISTRY#/$REGISTRY/g" ./*.yaml
-          sed -i -e "s/#TAG_NAME#/${GITHUB_REF_NAME}/g" ./*.yaml
+          sed -i -e "s/#TAG_NAME#/${{ github.ref_name }}/g" ./*.yaml
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -27,14 +29,14 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: abhisheksuran/podmonitor:${GITHUB_REF_NAME}
+          tags: ${{ env.REGISTRY }}/abhisheksuran/podmonitor:${{ github.ref_name }}
 
-      - name: Asset name as per tag
-        run: mv PodMonitor.yaml PodMonitor_${GITHUB_REF_NAME}.yaml
+      - name: Rename asset
+        run: mv PodMonitor.yaml PodMonitor_${{ github.ref_name }}.yaml
 
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            PodMonitor_${GITHUB_REF_NAME}.yaml
+            PodMonitor_${{ github.ref_name }}.yaml
