@@ -60,6 +60,9 @@ metadata:
 spec:
   name: mymonitor
   target_namespace: mynamespace
+  target_pods:
+  - pod1
+  - pod2
   smtp_server: 127.0.0.1
   smtp_port: 25
   mail_to: user1@example.com
@@ -68,7 +71,8 @@ spec:
   password: pass
 
 ```
-Note: The username and password fields are optional and depend on your SMTP server's configuration.
+Note: target_pods is optional and if not defined will monitor all the pods in target_namespacess
+The username and password fields are optional and depend on your SMTP server's configuration.
 
 #### Without credentials
 
@@ -80,6 +84,9 @@ metadata:
 spec:
   name: mymonitor
   target_namespace: mynamespace
+  target_pods:
+  - pod1
+  - pod2
   smtp_server: 127.0.0.1
   smtp_port: 25
   mail_to: user1@example.com

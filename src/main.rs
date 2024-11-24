@@ -83,6 +83,7 @@ async fn main() -> () {
 async fn monitor_pods_in_namespace(
     pod_api: Api<Pod>,
     namespace: &str,
+    monitored_pods: &Vec<String>
 ) -> Result<HashMap<String, (Vec<String>, Vec<String>, String)>, Error> {
     let mut error_pod: HashMap<String, (Vec<String>, Vec<String>, String)> = HashMap::new();
     let mut all_pod_names: HashSet<String> = HashSet::new();
@@ -95,6 +96,7 @@ async fn monitor_pods_in_namespace(
         .or_insert(pods_in_namespace.clone().into());
     for p in pod_api.list(&ListParams::default()).await? {
         let name: String = p.name_any();
+        if monitored_pods.is_empty()  || monitored_pods.contains(&name.to_string()) {
         all_pod_names.insert(name.clone());
 
         let pod_status = p
@@ -165,6 +167,7 @@ async fn monitor_pods_in_namespace(
                 .insert(name.clone(), phase.clone());
         }
     }
+}
 
     let pod_names: Vec<String> = pod_state()
         .lock()
@@ -270,8 +273,23 @@ async fn reconcile(
         PodMonitorAction::NoOp => {
             let client = Client::try_default().await?;
             let target_namespace = &podmonitor.spec.target_namespace;
+            // let target_pods = &podmonitor.spec.target_pods;
             let pods: Api<Pod> = Api::namespaced(client, &target_namespace);
-            let error_pods = monitor_pods_in_namespace(pods, &target_namespace).await?;
+
+            let error_pods = match &podmonitor.spec.target_pods { 
+                Some(t_pods) => { 
+                    let error_pods = monitor_pods_in_namespace(pods, &target_namespace, &t_pods).await?;
+                    error_pods
+                                },
+                None => {
+                    let not_pods: Vec<String> = Vec::new();
+                    let error_pods = monitor_pods_in_namespace(pods, &target_namespace, &not_pods).await?;
+                    error_pods
+                }
+            
+            };
+
+            
             if error_pods.is_empty() {
                 return Ok(Action::requeue(Duration::from_secs(10)));
             }

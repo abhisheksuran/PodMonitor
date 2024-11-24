@@ -26,7 +26,7 @@ pub async fn send_email(
         .unwrap();
 
     let mailer = match (username, password) {
-        (Some(user), Some(pass)) => {
+        (Some(_user), Some(_pass)) => {
             let creds = Credentials::new("smtp_username".to_owned(), "smtp_password".to_owned());
             SmtpTransport::builder_dangerous(server)
                 .port(port)

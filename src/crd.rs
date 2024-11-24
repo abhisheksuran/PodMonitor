@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 pub struct PodMonitorSpec {
     pub name: String,
     pub target_namespace: String,
+    pub target_pods: Option<Vec<String>>,
     pub smtp_server: String,
     pub smtp_port: u16,
     pub mail_to: String,
