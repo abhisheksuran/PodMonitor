@@ -15,10 +15,11 @@ This project provides a Rust-based custom resource and controller for Kubernetes
   - [1. Install the Controller](#1-install-the-controller)
   - [2. Initialize the Custom Resource Definition (CRD)](#2-initialize-the-custom-resource-definition-crd)
   - [3. Create a PodMonitor Instance](#3-create-a-podmonitor-instance)
-    - [With Credentials](#with-credentials)
-    - [Without Credentials](#without-credentials)
+    - [All Options](#all-options)
+    - [CRD fields](#crd-fields)
   - [4. Receive Notifications](#4-receive-notifications)
 - [Email Sample](#email-sample)
+- [Features And TODO](#features-and-todo)
 - [License](#license)
 - [References](#references)
 
@@ -50,7 +51,7 @@ Once the controller is running, it will automatically create the CRD and operate
 
 Define a new instance of the PodMonitor custom resource using the following YAML template:
 
-#### With Credentials
+#### All Options
 
 ```
 apiVersion: "kk.dev/v1"
@@ -63,36 +64,26 @@ spec:
   target_pods:
   - pod1
   - pod2
-  smtp_server: 127.0.0.1
-  smtp_port: 25
-  mail_to: user1@example.com
-  mail_from: user2@example.com
-  username: user
-  password: pass
+  mail:
+    from: "sender"
+    to: "receiver"
+    smtp_server: 127.0.0.1
+    smtp_port: 25
+    tls: "false"
+    username: "username"
+    password: "password"
+  webhook:
+    url: "http://127.0.0.1/"
 
 ```
-**Note**: **target_pods** is optional and if not defined will monitor all the pods in target_namespacess
+**target_pods** is optional and if not defined will monitor all the pods in target_namespacess
 The **username** and **password** fields are optional and depend on your SMTP server's configuration.
 
-#### Without credentials
+#### CRD fields
 
-```
-apiVersion: "kk.dev/v1"
-kind: PodMonitor
-metadata:
-  name: mymonitor
-spec:
-  name: mymonitor
-  target_namespace: mynamespace
-  target_pods:
-  - pod1
-  - pod2
-  smtp_server: 127.0.0.1
-  smtp_port: 25
-  mail_to: user1@example.com
-  mail_from: user2@example.com
+***Optional Fields***: mail, webhook, target_pods<br>
+***Optional Fields [mail]***: username, password<br>
 
-```
 
 ### 4. Receive Notifications
 Whenever a pod fails in the specified namespace, you will receive an email notification according to the configuration set in the PodMonitor instance.
@@ -104,6 +95,18 @@ Whenever a pod fails in the specified namespace, you will receive an email notif
 ![alt text](image.png)
 
 </div>
+
+## Features And TODO
+
+- <span style="color: green;">✔️</span> Monitor Pod within a target namespace
+- <span style="color: green;">✔️</span> Monitor specific or all pods in a namespace
+- <span style="color: green;">✔️</span> Trigger Email on pod failure
+- <span style="color: green;">✔️</span> TSL option ("true", "false") and Authentication to smtp server 
+- <span style="color: green;">✔️</span> Trigger webhook url with data using post request on pod failure
+- <input type="checkbox"> Enable use of kubernetes secret
+- <input type="checkbox"> Enable authentication to webhook
+- <input type="checkbox"> Enable ```Kubectl logs podmonitor```
+- <input type="checkbox"> Set up continuous integration
 
 ## License
 This project is licensed under the MIT License. See LICENSE for details.

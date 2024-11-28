@@ -4,7 +4,6 @@ use kube::{CustomResource, CustomResourceExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub enum TlsOption {
     #[serde(rename = "true")]

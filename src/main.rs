@@ -222,21 +222,19 @@ async fn prepare_email(
             .spec
             .get_mail_to()
             .map(|s| s.as_str())
-            .unwrap_or("default_to@example.com"),
+            .ok_or_else(|| Error::UserInputError("No recipient to email provided".into()))?,
         podmonitor
             .spec
             .get_mail_from()
             .map(|s| s.as_str())
-            .unwrap_or("default_from@example.com"),
-        // &podmonitor.spec.mail_to,
-        // &podmonitor.spec.mail_from,
+            .ok_or_else(|| Error::UserInputError("Sender of email not provided".into()))?,
         &msg,
         podmonitor
             .spec
             .get_smtp_server()
             .map(|s| s.as_str())
-            .unwrap_or("127.0.0.1"),
-        *podmonitor.spec.get_smtp_port().unwrap_or(&25),
+            .ok_or_else(|| Error::UserInputError("No SMTP server provided".into()))?,
+        podmonitor.spec.get_smtp_port().unwrap_or(&25),
         &podmonitor.spec.get_tls(),
         &podmonitor.spec.get_mail_username().as_deref(),
         &podmonitor.spec.get_mail_password().as_deref(),
@@ -250,11 +248,13 @@ async fn call_webhook(
     podmonitor: &Arc<PodMonitor>,
     error_pods: HashMap<String, (Vec<String>, Vec<String>, String)>,
 ) -> Result<(), Error> {
-    let default_url: String = "http://example.com".to_string();
-    let url: &String = &podmonitor.spec.get_webhook_url().unwrap_or(&default_url);
-    let json_str = serde_json::to_string(&error_pods).unwrap_or("{}".to_string());
+    let url: &String = podmonitor
+        .spec
+        .get_webhook_url()
+        .ok_or_else(|| Error::UserInputError("No Webhook URL provided".into()))?;
+    let json_str = serde_json::to_string(&error_pods)?; //.expect("ERROR While Processing error pods to serde json");
     let mut json_value: Value =
-        serde_json::from_str(&json_str).unwrap_or(serde_json::Value::String("{}".to_string()));
+        serde_json::from_str(&json_str)?;
     if let Some(obj) = json_value.as_object_mut() {
         obj.insert(
             "namespace".to_string(),
@@ -262,7 +262,7 @@ async fn call_webhook(
         );
     }
 
-    let data = serde_json::to_string_pretty(&json_value).unwrap_or("{}".to_string());
+    let data = serde_json::to_string_pretty(&json_value)?;
 
     match utils::post_data(&url, serde_json::Value::String(data)).await {
         Ok(response) => info!("Webhook request {}", response),
@@ -379,4 +379,10 @@ pub enum Error {
 
     #[error("Invalid podmonitor CRD: {0}")]
     UserInputError(String),
+
+    #[error("Serialization error: {source}")]
+    SerdeJsonError {
+        #[from]
+        source: serde_json::Error,
+    },
 }

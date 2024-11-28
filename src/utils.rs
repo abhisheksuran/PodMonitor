@@ -1,5 +1,6 @@
 use lettre::message::header::ContentType;
 // use lettre::transport::smtp::authentication::Credentials;
+use crate::crd::TlsOption;
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use lettre::transport::smtp::client::Tls;
 use lettre::transport::smtp::client::TlsParameters;
@@ -9,7 +10,6 @@ use log::info;
 use log::warn;
 use reqwest;
 use serde_json::json;
-use crate::crd::TlsOption;
 
 pub async fn send_email(
     name: &str,
@@ -17,7 +17,7 @@ pub async fn send_email(
     from: &str,
     msg: &str,
     server: &str,
-    port: u16,
+    port: &u16,
     tls: &Option<&TlsOption>,
     username: &Option<&String>,
     password: &Option<&String>,
@@ -39,28 +39,27 @@ pub async fn send_email(
             let creds = Credentials::new(user.to_string(), pass.to_string());
 
             if tls.unwrap_or(&TlsOption::False).as_str() == "false" {
-            SmtpTransport::builder_dangerous(server)
-                .port(port)
-                .credentials(creds)
-                .authentication(vec![Mechanism::Plain, Mechanism::Login])
-                .build()
-            }
-            else {
+                SmtpTransport::builder_dangerous(server)
+                    .port(*port)
+                    .credentials(creds)
+                    .authentication(vec![Mechanism::Plain, Mechanism::Login])
+                    .build()
+            } else {
+                let tls_parameters = TlsParameters::builder(server.to_string())
+                    .dangerous_accept_invalid_certs(true)
+                    .build();
 
-            let tls_parameters = TlsParameters::builder(server.to_string())
-            .dangerous_accept_invalid_certs(true)
-            .build();
-
-            SmtpTransport::relay(server).expect("REASON")
-            .port(port)
-            .tls(Tls::Required(tls_parameters.expect("REASON")))
-            .credentials(creds)
-            .build()
+                SmtpTransport::relay(server)
+                    .expect("REASON")
+                    .port(*port)
+                    .tls(Tls::Required(tls_parameters.expect("REASON")))
+                    .credentials(creds)
+                    .build()
             }
         }
         (None, None) => {
             warn!("Connecting to smtp without credentials for: {:?}", name);
-            SmtpTransport::builder_dangerous(server).port(port).build()
+            SmtpTransport::builder_dangerous(server).port(*port).build()
         }
 
         _ => {
