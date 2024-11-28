@@ -19,7 +19,7 @@ This project provides a Rust-based custom resource and controller for Kubernetes
     - [CRD fields](#crd-fields)
   - [4. Receive Notifications](#4-receive-notifications)
 - [Email Sample](#email-sample)
-- [Features And TODO](#features-and-todo)
+- [Features And ToDo](#features-and-todo)
 - [License](#license)
 - [References](#references)
 
@@ -29,7 +29,7 @@ This project provides a Rust-based custom resource and controller for Kubernetes
 
 Apply the Kubernetes YAML configuration to set up the necessary components, including the namespace, service account, cluster role, role binding, and controller deployment:
 
-Use PodMonitor.yaml from [release](https://github.com/abhisheksuran/PodMonitor/releases/tag/0.1.2) 
+Use PodMonitor.yaml from [release](https://github.com/abhisheksuran/PodMonitor/releases/tag/0.1.3) 
 ```
 kubectl apply -f PodMonitor.yaml
 ```
@@ -96,7 +96,7 @@ Whenever a pod fails in the specified namespace, you will receive an email notif
 
 </div>
 
-## Features And TODO
+## Features And ToDo
 
 - <span style="color: green;">✔️</span> Monitor Pod within a target namespace
 - <span style="color: green;">✔️</span> Monitor specific or all pods in a namespace
