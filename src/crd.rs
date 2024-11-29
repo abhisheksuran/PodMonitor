@@ -53,8 +53,6 @@ pub struct WebHook {
 )]
 #[kube(status = "PodMonitorStatus")]
 pub struct PodMonitorSpec {
-    pub name: String,
-    pub target_namespace: String,
     pub target_pods: Option<Vec<String>>,
     pub mail: Option<MailDetails>,
     pub webhook: Option<WebHook>,

@@ -90,7 +90,7 @@ async fn monitor_pods_in_namespace(
     let mut error_pod: HashMap<String, (Vec<String>, Vec<String>, String)> = HashMap::new();
     let mut all_pod_names: HashSet<String> = HashSet::new();
     let mut pods_in_namespace: HashMap<String, String> = HashMap::new();
-    debug!("Global Pod states {:?}", pod_state().lock().unwrap());
+    println!("Global Pod states {:?}", pod_state().lock().unwrap());
     pod_state()
         .lock()
         .unwrap()
@@ -98,9 +98,9 @@ async fn monitor_pods_in_namespace(
         .or_insert(pods_in_namespace.clone().into());
     for p in pod_api.list(&ListParams::default()).await? {
         let name: String = p.name_any();
+        
         if monitored_pods.is_empty() || monitored_pods.contains(&name.to_string()) {
             all_pod_names.insert(name.clone());
-
             let pod_status = p
                 .status
                 .clone()
@@ -182,6 +182,7 @@ async fn monitor_pods_in_namespace(
         .into_keys()
         .collect();
     let set_pod_names: HashSet<String> = HashSet::from_iter(pod_names);
+    println!("{:?}", set_pod_names);
     let deleted_pod: HashSet<&String> = set_pod_names.difference(&all_pod_names).collect();
     info!("Deleted Pod: {:?}", deleted_pod);
 
@@ -211,7 +212,7 @@ async fn prepare_email(
         let c_status = value.0.join(",");
         let c_reason = value.1.join(",");
         let p_phase = value.2;
-        let ns = &podmonitor.spec.target_namespace;
+        let ns = &podmonitor.namespace().ok_or_else(|| Error::UserInputError("Error Getting namespace".into()))?;
         msg.push_str(&format!("Namespace: {ns}\nPod Name : {key} \nContainers Statuses: {c_status} \nStatus Remark:  {c_reason} \nPOD_STATE: {p_phase}\n\n--------\n\n"));
     }
     msg.push_str(&"Thanks");
@@ -258,7 +259,7 @@ async fn call_webhook(
     if let Some(obj) = json_value.as_object_mut() {
         obj.insert(
             "namespace".to_string(),
-            json!(&podmonitor.spec.target_namespace),
+            json!(&podmonitor.namespace().ok_or_else(|| Error::UserInputError("Error Getting namespace".into()))?),
         );
     }
 
@@ -314,20 +315,20 @@ async fn reconcile(
         }
         PodMonitorAction::NoOp => {
             let client = Client::try_default().await?;
-            let target_namespace = &podmonitor.spec.target_namespace;
+            // let target_namespace = &podmonitor.spec.target_namespace;
             // let target_pods = &podmonitor.spec.target_pods;
-            let pods: Api<Pod> = Api::namespaced(client, &target_namespace);
+            let pods: Api<Pod> = Api::namespaced(client, &namespace);
 
             let error_pods = match &podmonitor.spec.target_pods {
                 Some(t_pods) => {
                     let error_pods =
-                        monitor_pods_in_namespace(&pods, &target_namespace, &t_pods).await?;
+                        monitor_pods_in_namespace(&pods, &namespace, &t_pods).await?;
                     error_pods
                 }
                 None => {
                     let not_pods: Vec<String> = Vec::new();
                     let error_pods =
-                        monitor_pods_in_namespace(&pods, &target_namespace, &not_pods).await?;
+                        monitor_pods_in_namespace(&pods, &namespace, &not_pods).await?;
                     error_pods
                 }
             };
