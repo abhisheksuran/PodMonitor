@@ -99,7 +99,7 @@ async fn monitor_pods_in_namespace(
     for p in pod_api.list(&ListParams::default()).await? {
         let name: String = p.name_any();
         
-        if monitored_pods.is_empty() || monitored_pods.contains(&name.to_string()) {
+        
             all_pod_names.insert(name.clone());
             let pod_status = p
                 .status
@@ -153,11 +153,12 @@ async fn monitor_pods_in_namespace(
                     .get(&name)
                     != Some(&phase)
             {
+                if monitored_pods.is_empty() || monitored_pods.contains(&name.to_string()) {
                 error_pod.insert(
                     name.clone(),
                     (cont_status, cont_reason.clone(), phase.to_string()),
                 );
-            }
+            }}
             if !&cont_reason.contains(&"ContainerCreating".to_string()) {
                 pod_state()
                     .lock()
@@ -168,7 +169,7 @@ async fn monitor_pods_in_namespace(
                     .unwrap()
                     .insert(name.clone(), phase.clone());
             }
-        }
+        
     }
 
     let pod_names: Vec<String> = pod_state()
