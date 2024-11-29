@@ -34,8 +34,8 @@ pub async fn send_email(
 
     let mailer = match (*username, *password) {
         (Some(user), Some(pass)) => {
-            println!("{}", user.to_string());
-            println!("{}", pass.to_string());
+            // println!("{}", user.to_string());
+            // println!("{}", pass.to_string());
             let creds = Credentials::new(user.to_string(), pass.to_string());
 
             if tls.unwrap_or(&TlsOption::False).as_str() == "false" {
