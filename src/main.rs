@@ -28,6 +28,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::time::Duration;
 
+use crate::action::ActionHandler;
+mod action;
 pub mod crd;
 mod finalizer;
 mod utils;
@@ -98,78 +100,77 @@ async fn monitor_pods_in_namespace(
         .or_insert(pods_in_namespace.clone().into());
     for p in pod_api.list(&ListParams::default()).await? {
         let name: String = p.name_any();
-        
-        
-            all_pod_names.insert(name.clone());
-            let pod_status = p
-                .status
-                .clone()
+
+        all_pod_names.insert(name.clone());
+        let pod_status = p
+            .status
+            .clone()
+            .unwrap()
+            .container_statuses
+            .unwrap()
+            .iter()
+            .map(|c| c.state.clone())
+            .collect::<Vec<Option<ContainerState>>>();
+
+        let cont_status = pod_status
+            .clone()
+            .iter()
+            .map(|cs| match cs.clone().unwrap().running {
+                Some(_r) => return "Running".to_string(),
+                None => return "Not Running".to_string(),
+            })
+            .collect::<Vec<String>>();
+
+        let cont_reason = pod_status
+            .clone()
+            .iter()
+            .map(|cr| match cr.clone().unwrap().waiting {
+                Some(_w) => return _w.reason.unwrap(),
+                None => return "None".to_string(),
+            })
+            .collect::<Vec<String>>();
+
+        let phase = &p.status.unwrap().phase.unwrap();
+        debug!(
+            "Pod Name{:?}, Containers Statuses {:?}, Containers Reasions {:?}, Pod Phase {:?}",
+            name, cont_status, cont_reason, phase
+        );
+
+        let c_reasons = cont_reason
+            .clone()
+            .into_iter()
+            .filter(|i| !["Running", "Succeeded", "ContainerCreating"].contains(&&i[..]))
+            .collect::<Vec<String>>();
+        // debug!("{:?}{:?}", pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap(), Some(&phase));
+        if !c_reasons.is_empty()
+            && &phase[..] != "Running"
+            && pod_state()
+                .lock()
                 .unwrap()
-                .container_statuses
+                .get(&namespace.to_owned())
+                .expect("Internal State Error")
+                .lock()
                 .unwrap()
-                .iter()
-                .map(|c| c.state.clone())
-                .collect::<Vec<Option<ContainerState>>>();
-
-            let cont_status = pod_status
-                .clone()
-                .iter()
-                .map(|cs| match cs.clone().unwrap().running {
-                    Some(_r) => return "Running".to_string(),
-                    None => return "Not Running".to_string(),
-                })
-                .collect::<Vec<String>>();
-
-            let cont_reason = pod_status
-                .clone()
-                .iter()
-                .map(|cr| match cr.clone().unwrap().waiting {
-                    Some(_w) => return _w.reason.unwrap(),
-                    None => return "None".to_string(),
-                })
-                .collect::<Vec<String>>();
-
-            let phase = &p.status.unwrap().phase.unwrap();
-            debug!(
-                "Pod Name{:?}, Containers Statuses {:?}, Containers Reasions {:?}, Pod Phase {:?}",
-                name, cont_status, cont_reason, phase
-            );
-
-            let c_reasons = cont_reason
-                .clone()
-                .into_iter()
-                .filter(|i| !["Running", "Succeeded", "ContainerCreating"].contains(&&i[..]))
-                .collect::<Vec<String>>();
-            // debug!("{:?}{:?}", pod_state().lock().unwrap().get(&namespace.to_owned()).unwrap(), Some(&phase));
-            if !c_reasons.is_empty()
-                && &phase[..] != "Running"
-                && pod_state()
-                    .lock()
-                    .unwrap()
-                    .get(&namespace.to_owned())
-                    .expect("Internal State Error")
-                    .lock()
-                    .unwrap()
-                    .get(&name)
-                    != Some(&phase)
-            {
-                if monitored_pods.is_empty() || monitored_pods.contains(&name.to_string()) {
+                .get(&name)
+                != Some(&phase)
+        {
+            if monitored_pods.is_empty() || monitored_pods.contains(&name.to_string()) {
                 error_pod.insert(
                     name.clone(),
                     (cont_status, cont_reason.clone(), phase.to_string()),
                 );
-            }}
-            if !&cont_reason.contains(&"ContainerCreating".to_string()) {
-                pod_state()
-                    .lock()
-                    .unwrap()
-                    .get(&namespace.to_owned())
-                    .unwrap()
-                    .lock()
-                    .unwrap()
-                    .insert(name.clone(), phase.clone());
             }
-        
+        }
+        if !&cont_reason.contains(&"ContainerCreating".to_string()) {
+            pod_state()
+                .lock()
+                .unwrap()
+                .get(&namespace.to_owned())
+                .unwrap()
+                .lock()
+                .unwrap()
+                .insert(name.clone(), phase.clone());
+        }
     }
 
     let pod_names: Vec<String> = pod_state()
@@ -199,78 +200,6 @@ async fn monitor_pods_in_namespace(
     }
 
     Ok(error_pod)
-}
-
-async fn prepare_email(
-    podmonitor: &Arc<PodMonitor>,
-    error_pods: HashMap<String, (Vec<String>, Vec<String>, String)>,
-) -> Result<(), Error> {
-    info!("Setting Up Email...");
-    debug!("{:?}", error_pods);
-    let mut msg = String::new();
-    msg.push_str(&"Hi,\n\nFollowing Pods are not in running state.\n\n");
-    for (key, value) in error_pods.into_iter() {
-        let c_status = value.0.join(",");
-        let c_reason = value.1.join(",");
-        let p_phase = value.2;
-        let ns = &podmonitor.namespace().ok_or_else(|| Error::UserInputError("Error Getting namespace".into()))?;
-        msg.push_str(&format!("Namespace: {ns}\nPod Name : {key} \nContainers Statuses: {c_status} \nStatus Remark:  {c_reason} \nPOD_STATE: {p_phase}\n\n--------\n\n"));
-    }
-    msg.push_str(&"Thanks");
-    debug!("{}", msg);
-    utils::send_email(
-        &podmonitor.name_any(),
-        podmonitor
-            .spec
-            .get_mail_to()
-            .map(|s| s.as_str())
-            .ok_or_else(|| Error::UserInputError("No recipient to email provided".into()))?,
-        podmonitor
-            .spec
-            .get_mail_from()
-            .map(|s| s.as_str())
-            .ok_or_else(|| Error::UserInputError("Sender of email not provided".into()))?,
-        &msg,
-        podmonitor
-            .spec
-            .get_smtp_server()
-            .map(|s| s.as_str())
-            .ok_or_else(|| Error::UserInputError("No SMTP server provided".into()))?,
-        podmonitor.spec.get_smtp_port().unwrap_or(&25),
-        &podmonitor.spec.get_tls(),
-        &podmonitor.spec.get_mail_username().as_deref(),
-        &podmonitor.spec.get_mail_password().as_deref(),
-    )
-    .await;
-    // info!("Email Sent!!!");
-    Ok(())
-}
-
-async fn call_webhook(
-    podmonitor: &Arc<PodMonitor>,
-    error_pods: HashMap<String, (Vec<String>, Vec<String>, String)>,
-) -> Result<(), Error> {
-    let url: &String = podmonitor
-        .spec
-        .get_webhook_url()
-        .ok_or_else(|| Error::UserInputError("No Webhook URL provided".into()))?;
-    let json_str = serde_json::to_string(&error_pods)?; //.expect("ERROR While Processing error pods to serde json");
-    let mut json_value: Value =
-        serde_json::from_str(&json_str)?;
-    if let Some(obj) = json_value.as_object_mut() {
-        obj.insert(
-            "namespace".to_string(),
-            json!(&podmonitor.namespace().ok_or_else(|| Error::UserInputError("Error Getting namespace".into()))?),
-        );
-    }
-
-    let data = serde_json::to_string_pretty(&json_value)?;
-
-    match utils::post_data(&url, serde_json::Value::String(data)).await {
-        Ok(response) => info!("Webhook request {}", response),
-        Err(e) => error!("Error: {}", e),
-    }
-    Ok(())
 }
 
 struct ContextData {
@@ -316,14 +245,12 @@ async fn reconcile(
         }
         PodMonitorAction::NoOp => {
             let client = Client::try_default().await?;
-            // let target_namespace = &podmonitor.spec.target_namespace;
-            // let target_pods = &podmonitor.spec.target_pods;
+
             let pods: Api<Pod> = Api::namespaced(client, &namespace);
 
             let error_pods = match &podmonitor.spec.target_pods {
                 Some(t_pods) => {
-                    let error_pods =
-                        monitor_pods_in_namespace(&pods, &namespace, &t_pods).await?;
+                    let error_pods = monitor_pods_in_namespace(&pods, &namespace, &t_pods).await?;
                     error_pods
                 }
                 None => {
@@ -338,14 +265,17 @@ async fn reconcile(
                 return Ok(Action::requeue(Duration::from_secs(10)));
             }
 
-            match &podmonitor.spec.mail {
-                Some(mail) => prepare_email(&podmonitor, error_pods.clone()).await?,
-                None => println!(""),
+            let mut actions: Vec<Box<dyn ActionHandler + Send>> = Vec::new();
+            if podmonitor.spec.mail.is_some() {
+                actions.push(Box::new(action::EmailAction));
             }
-            match &podmonitor.spec.webhook {
-                Some(webhook) => call_webhook(&podmonitor, error_pods.clone()).await?,
-                None => println!(""),
+            if podmonitor.spec.webhook.is_some() {
+                actions.push(Box::new(action::WebhookAction));
             }
+            for action in actions {
+                action.execute(&podmonitor, error_pods.clone()).await?;
+            }
+
             Ok(Action::requeue(Duration::from_secs(10)))
         }
     }
