@@ -29,7 +29,9 @@ This project provides a Rust-based custom resource and controller for Kubernetes
 
 Apply the Kubernetes YAML configuration to set up the necessary components, including the namespace, service account, cluster role, role binding, and controller deployment:
 
+
 Use PodMonitor.yaml from [release](https://github.com/abhisheksuran/PodMonitor/releases/tag/0.1.4) 
+
 ```
 kubectl apply -f PodMonitor.yaml
 ```
