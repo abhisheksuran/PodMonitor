@@ -94,5 +94,5 @@ impl PodMonitorSpec {
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, JsonSchema)]
 pub struct PodMonitorStatus {
-    pub is_ok: bool,
+    pub logs: Vec<String>,
 }

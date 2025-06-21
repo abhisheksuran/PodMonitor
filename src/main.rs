@@ -33,6 +33,8 @@ mod action;
 pub mod crd;
 mod finalizer;
 mod utils;
+mod reconcile;
+use crate::reconcile::update_status_log;
 
 use std::sync::{Mutex, OnceLock};
 
@@ -264,6 +266,10 @@ async fn reconcile(
             if error_pods.is_empty() {
                 return Ok(Action::requeue(Duration::from_secs(10)));
             }
+            let client = Client::try_default().await?;
+
+            let podmonitor_client: Api<PodMonitor> = Api::namespaced(client, &namespace);
+            update_status_log(&podmonitor_client, &name, error_pods.clone()).await?;
 
             let mut actions: Vec<Box<dyn ActionHandler + Send>> = Vec::new();
             if podmonitor.spec.mail.is_some() {
